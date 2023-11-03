@@ -1,0 +1,30 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/x86_64-linux-gnu-g++-10",
+      "-c",
+      "-g",
+      "-std=c++23",
+      "main.cpp",
+      "-o",
+      "rhtml"
+    ],
+    "directory": "/home/rhys/progs/cpp/rhtml",
+    "file": "/home/rhys/progs/cpp/rhtml/main.cpp",
+    "output": "/home/rhys/progs/cpp/rhtml/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/x86_64-linux-gnu-g++-10",
+      "-c",
+      "-g",
+      "-std=c++23",
+      "Token.h",
+      "-o",
+      "rhtml"
+    ],
+    "directory": "/home/rhys/progs/cpp/rhtml",
+    "file": "/home/rhys/progs/cpp/rhtml/Token.h",
+    "output": "/home/rhys/progs/cpp/rhtml/Token.o"
+  }
+]

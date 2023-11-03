@@ -1,14 +1,8 @@
 #include <algorithm>
-#include <clocale>
-#include <functional>
 #include <iostream>
 #include <fstream>
 #include <iterator>
 #include <string>
-#include <type_traits>
-#include <utility>
-#include <climits>
-#include <optional>
 #include "Token.h"
 
 #define WHILE_FIND_TOKEN(tok) \
@@ -73,13 +67,16 @@ namespace clog {
 	void out(const T &str) noexcept {
 		std::cout << str << std::endl;
 	}
-	void warn(const std::string &str, bool print_line = true) noexcept {
+	template <typename T>
+	void warn(const T &str, bool print_line = true) noexcept {
 		std::cerr << (print_line ? "LINE: " + std::to_string(line_number) : "") << "WARNING: " << str << std::endl;
 	}
-	void error(const std::string &str, bool print_line = true) noexcept {
+	template <typename T>
+	void error(const T &str, bool print_line = true) noexcept {
 		std::cerr << (print_line ? "LINE: " + std::to_string(line_number) : "") << " ERROR: " << str << std::endl;
 	}
-	void note(const std::string &str) noexcept {
+	template <typename T>
+	void note(const T &str) noexcept {
 		std::cout << "NOTE: " << str << std::endl;
 	}
 }
@@ -143,7 +140,22 @@ std::vector<std::string> split(const std::string &str) { // IT WORKS!! WOW!!
 		}
 	}
 	
+	//bool in_quotes = false;
+	//for (int i = 0; i < ret.size(); i++) {
+	//	if (ret[i] == "\"" && !in_quotes) in_quotes = false;
+	//	else if (ret[i] == "\"" && in_quotes) in_quotes = true;
+	//	else if (ret[i] == " " && !in_quotes) ret.erase(ret.begin()+i);
+	//}
+	
 	return ret;
+}
+
+template <typename T>
+std::ostream & operator<<(std::ostream &os, const std::vector<T> &v) {
+    for (typename std::vector<T>::const_iterator ii = v.begin(); ii != v.end(); ++ii) {
+        os << " " << *ii;
+    }
+    return os;
 }
 
 template <typename Container, typename ConstIterator>
@@ -246,12 +258,20 @@ bool is_number(const std::string &s) {
     return !s.empty() && it == s.end();
 }
 
+std::string translate(const std::string &str) {
+	for (const Translation &translation : tag_translations) {
+		if (translation.before == str) return translation.after;
+	}
+	
+	return str;
+}
+
 namespace tok_funcs {
 	void open_curly_brace(TokIt tok_it) {
-		out.push_back('<' + *(tok_it-1) + '>');
+		out.push_back('<' + translate(*(tok_it-1)) + '>');
 	}
 	void close_curly_brace(TokIt tok_it) {
-		out.push_back("</" + *(tok_it+1) + '>');
+		out.push_back("</" + translate(*(tok_it+1)) + '>');
 	}
 	void quote(TokIt tok_it, bool &in_quotes, TokIt &quote) {
 		in_quotes = !in_quotes;
@@ -266,13 +286,20 @@ namespace tok_funcs {
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		clog::error("Must input file to compile.", 0);
-		return 0;
+		return 1;
+	}
+	std::string src_file = std::string(argv[1]);
+	if (src_file.substr(src_file.size()-6) != ".rhtml" && src_file.substr(src_file.size()-5) != ".html") {
+		clog::error("Source file must be .html or .rhtml.", false);
+		return 1;
 	}
 	
 	std::ifstream read;
-	read.open(argv[1], std::ifstream::in);
+	read.open(src_file, std::ifstream::in);
 	std::ofstream write;
 	write.open("rhtmlout.html", std::ofstream::out | std::ios::trunc);
+	
+	out.push_back("<!DOCTYPE html>\n");
 	
 	std::vector<std::string> disallowed_toks = { };
 	
@@ -288,16 +315,32 @@ int main(int argc, char *argv[]) {
 		if (!l.empty()) {
 			_ltoks = split(l);
 			_us_ltoks = unspaced(_ltoks);
-			WHILE_US_FIND_TOKEN("{") {
-				tok_funcs::open_curly_brace(tok_it);
-			} WHILE_FIND_TOKEN_END
-			WHILE_US_FIND_TOKEN("}") {
-				tok_funcs::close_curly_brace(tok_it);
-			} WHILE_FIND_TOKEN_END
-			WHILE_US_FIND_TOKEN("\"") {
-				tok_funcs::quote(tok_it, in_quotes, quote);
-			} WHILE_FIND_TOKEN_END
+			
+			//for (auto s : _us_ltoks) { std::cout << '\"' << s << "\", "; }
+			//std::cout << std::endl;
+			//for (auto s : _ltoks) { std::cout << '\"' << s << "\", "; }
+			//std::cout << std::endl;
 
+			auto stok_it = _ltoks.begin();
+			for (tok_it = _us_ltoks.begin(); tok_it != _us_ltoks.end(); tok_it++) {
+
+				std::cout << "tok: " << *tok_it << std::endl;
+				std::cout << "stok: " << *stok_it << std::endl << std::endl;
+				
+				if (*tok_it == "\"") {
+					tok_funcs::quote(stok_it, in_quotes, quote);
+				} else if (!in_quotes) {
+					if (*tok_it == "{") {
+						tok_funcs::open_curly_brace(tok_it);
+					} else if (*tok_it == "}") {
+						tok_funcs::close_curly_brace(tok_it);
+					}
+				}
+				if (stok_it+1 != _ltoks.end()) {
+					stok_it = std::find(stok_it+1, _ltoks.end(), *(tok_it+1));
+				}
+			}
+			
 			disallowed_toks.clear();
 		}
 		out.push_back("\n");
