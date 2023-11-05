@@ -41,6 +41,9 @@
 			tok_it = remove_constness(_us_ltoks, find_first_tok(_us_ltoks, toks, tok_it)); \
 			if (tok_it != _us_ltoks.end()) {
 
+#define TOK(i) *(tok_it i)
+#define RTOK(i) (tok_it i)
+
 using TokIt = std::vector<std::string>::iterator;
 
 std::vector<std::string> _ltoks;
@@ -267,11 +270,22 @@ std::string translate(const std::string &str) {
 }
 
 namespace tok_funcs {
-	void open_curly_brace(TokIt tok_it) {
-		out.push_back('<' + translate(*(tok_it-1)) + '>');
+	void open_curly_brace(TokIt tok_it, std::vector<std::string> &tag_tree) {
+		std::string tag = translate(TOK(-1)); 
+		out.push_back('<' + tag + '>');
+		tag_tree.push_back(tag);
 	}
-	void close_curly_brace(TokIt tok_it) {
-		out.push_back("</" + translate(*(tok_it+1)) + '>');
+	void close_curly_brace(TokIt tok_it, std::vector<std::string> &tag_tree) {
+		std::string closing_tag = "</";
+		if (RTOK(+1) == _us_ltoks.end() || TOK(+1) == ";") {
+			closing_tag += translate(tag_tree.back());
+		} else {
+			closing_tag += translate(TOK(+1));
+		}
+		closing_tag += ">\n";
+		out.push_back(closing_tag);
+
+		tag_tree.pop_back();
 	}
 	void quote(TokIt tok_it, bool &in_quotes, TokIt &quote) {
 		in_quotes = !in_quotes;
@@ -307,7 +321,9 @@ int main(int argc, char *argv[]) {
 	TokIt quote;
 
 	TokIt tok_it;
-
+	
+	std::vector<std::string> tag_tree;
+	
 	std::string l;
 	while (std::getline(read, l)) {
 		line_number++;
@@ -323,21 +339,17 @@ int main(int argc, char *argv[]) {
 
 			auto stok_it = _ltoks.begin();
 			for (tok_it = _us_ltoks.begin(); tok_it != _us_ltoks.end(); tok_it++) {
-
-				std::cout << "tok: " << *tok_it << std::endl;
-				std::cout << "stok: " << *stok_it << std::endl << std::endl;
-				
 				if (*tok_it == "\"") {
 					tok_funcs::quote(stok_it, in_quotes, quote);
 				} else if (!in_quotes) {
 					if (*tok_it == "{") {
-						tok_funcs::open_curly_brace(tok_it);
+						tok_funcs::open_curly_brace(tok_it, tag_tree);
 					} else if (*tok_it == "}") {
-						tok_funcs::close_curly_brace(tok_it);
+						tok_funcs::close_curly_brace(tok_it, tag_tree);
 					}
 				}
 				if (stok_it+1 != _ltoks.end()) {
-					stok_it = std::find(stok_it+1, _ltoks.end(), *(tok_it+1));
+					stok_it = std::find(stok_it+1, _ltoks.end(), TOK(+1));
 				}
 			}
 			
